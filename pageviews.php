@@ -1,15 +1,15 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-
+$count=0;
 // Include the Google API PHP Client library for the Data API
 require 'vendor/autoload.php';
 
 // GA4 Property ID (Replace with your GA4 Property ID)
-$propertyId = '**************';
+$propertyId = '************';
 
 // Service Account Credentials JSON File Path
-$credentialsPath = '/******/*****/*******/creds.json';
+$credentialsPath = '/*******/*******/******/creds.json';
 
 // Initialize the Google API client for the Data API
 $client = new Google\Client();
@@ -28,8 +28,12 @@ function normalizeUrl($url) {
 }
 
 // Function to get PageViews for a specific URL
+
 function getPageViewsForUrl($analyticsData, $propertyId, $url) {
-    try {
+    
+
+	
+	try {
         // Normalize the URL before making the API request
         $normalizedUrl = normalizeUrl($url);
 
@@ -37,7 +41,7 @@ function getPageViewsForUrl($analyticsData, $propertyId, $url) {
             'property' => 'properties/' . $propertyId,
             'dateRanges' => [
                 [
-                    'start_date' => '7daysAgo',
+                    'start_date' => getDaysSincePostPublished().'daysAgo',
                     'end_date' => 'today',
                 ],
             ],
@@ -87,7 +91,7 @@ try {
       'property' => 'properties/' . $propertyId,
       'dateRanges' => [
           [
-              'start_date' => '7daysAgo',
+              'start_date' => getDaysSincePostPublished().'daysAgo',
               'end_date' => 'today',
           ],
       ],
@@ -111,24 +115,48 @@ try {
       exit;
   }
 
-  // Display the PageViews count for the relevant URL
-  $count=-1;
+  // Display the PageViews count for each URL
+
   $URI = $_SERVER['REQUEST_URI'];
   foreach ($response->getRows() as $row) {
       $url = $row->getDimensionValues()[0]->getValue();
       $pageViews = $row->getMetricValues()[0]->getValue();
       if($URI==$url){
         $count=$pageViews;
-        echo $count;
-      }else{
-        error_log($URI.' Not Found');
+
+		add_shortcode('page_views_count', '<p>Page Views: ' . $count . '</p>');
       }
   
     }
-  echo $_SERVER['REQUEST_URI'];
+
 } catch (Google\Service\Exception $e) {
   // Log any exceptions to the error log
   error_log('Google API Exception: ' . $e->getMessage());
   echo 'An error occurred while fetching data.';
 }
-?>
+
+function page_views_count_shortcode() {
+
+	global $count;
+    return '<p>Page Views: ' . $count . '</p>';
+}
+add_shortcode('page_views_count', 'page_views_count_shortcode');	
+
+
+function getDaysSincePostPublished() {
+		$post = get_the_ID();
+    if (!$post instanceof WP_Post) {
+        $post = get_post($post);
+    }
+
+    if (!$post || !in_array($post->post_type, array('post', 'page'))) {
+        return -1; // Return -1 to indicate an error or unsupported post type.
+    }
+
+    $publishedDate = strtotime($post->post_date);
+    $currentDate = current_time('timestamp');
+
+    $daysSincePublished = floor(($currentDate - $publishedDate) / (60 * 60 * 24)) +7;
+
+    return $daysSincePublished;
+}
